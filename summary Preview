@@ -1,0 +1,60 @@
+```html
+<!-- Add version dropdown and modify summary input section -->
+<div style="margin-bottom: 15px;">
+    <label for="versionSelect" style="display: block; margin-bottom: 5px; font-weight: bold;">Version*</label>
+    <select id="versionSelect" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+        <option value="">Select Version</option>
+        <option value="23.1">23.1</option>
+        <option value="23.2">23.2</option>
+        <option value="23.3">23.3</option>
+    </select>
+</div>
+
+<div style="margin-bottom: 15px;">
+    <label for="summary" style="display: block; margin-bottom: 5px; font-weight: bold;">Summary*</label>
+    <input type="text" id="summary" required placeholder="Enter summary" 
+           style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+    <div style="margin-top: 8px; padding: 8px; background-color: #f5f5f5; border-radius: 4px; font-size: 0.9em;">
+        <div style="font-weight: bold; margin-bottom: 4px;">Final Summary Preview:</div>
+        <div id="summaryPreview" style="color: #666;"></div>
+    </div>
+</div>
+
+<!-- Add this JavaScript code -->
+<script>
+function updateSummaryPreview() {
+    const version = document.getElementById('versionSelect').value;
+    const userSummary = document.getElementById('summary').value;
+    const previewDiv = document.getElementById('summaryPreview');
+    
+    const finalSummary = version 
+        ? `ORG: Release update ${version} ${userSummary}`
+        : 'ORG: Release update [Select Version] ' + userSummary;
+        
+    previewDiv.textContent = finalSummary;
+}
+
+// Add event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    const versionSelect = document.getElementById('versionSelect');
+    const summaryInput = document.getElementById('summary');
+    
+    versionSelect.addEventListener('change', updateSummaryPreview);
+    summaryInput.addEventListener('input', updateSummaryPreview);
+    
+    // Initial preview
+    updateSummaryPreview();
+});
+
+// Modify your form submission to use the formatted summary
+document.getElementById('defectForm').onsubmit = async function(e) {
+    e.preventDefault();
+    
+    const version = document.getElementById('versionSelect').value;
+    const userSummary = document.getElementById('summary').value;
+    const finalSummary = `ORG: Release update ${version} ${userSummary}`;
+    
+    // ... rest of your submission code, but use finalSummary instead of direct summary value
+};
+</script>
+```
