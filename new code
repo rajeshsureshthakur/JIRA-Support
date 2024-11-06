@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>JIRA Defect Creation</title>
+</head>
+<body>
+    <button id="createDefectBtn" style="background-color: #0052CC; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">Create JIRA Defect</button>
+
+    <div id="defectModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; padding: 20px; border-radius: 8px; width: 80%; max-width: 600px;">
+            <h2 style="margin-bottom: 20px;">Create JIRA Defect</h2>
+            <form id="defectForm">
+                <div style="margin-bottom: 15px;">
+                    <label for="projectKey" style="display: block; margin-bottom: 5px; font-weight: bold;">Project Key*</label>
+                    <input type="text" id="projectKey" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label for="summary" style="display: block; margin-bottom: 5px; font-weight: bold;">Summary*</label>
+                    <input type="text" id="summary" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label for="description" style="display: block; margin-bottom: 5px; font-weight: bold;">Description*</label>
+                    <textarea id="description" required style="width: 100%; height: 100px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;"></textarea>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label for="priority" style="display: block; margin-bottom: 5px; font-weight: bold;">Priority</label>
+                    <select id="priority" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+                        <option value="Highest">Highest</option>
+                        <option value="High">High</option>
+                        <option value="Medium" selected>Medium</option>
+                        <option value="Low">Low</option>
+                        <option value="Lowest">Lowest</option>
+                    </select>
+                </div>
+
+                <div style="border: 1px solid #ddd; padding: 15px; border-radius: 4px; margin-bottom: 15px;">
+                    <div style="display: flex; gap: 15px; margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                            <input type="radio" name="assigneeType" value="auto" checked>
+                            Automatic Assignment
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                            <input type="radio" name="assigneeType" value="manual">
+                            Manual Assignment
+                        </label>
+                    </div>
+
+                    <div id="autoAssignee">
+                        <label style="display: block; margin-bottom: 5px;">Priority-based Assignee:</label>
+                        <div style="margin-top: 5px; padding: 8px; background-color: #f5f5f5; border-radius: 4px; display: flex; align-items: center; gap: 10px;">
+                            <div class="assignee-avatar" style="width: 24px; height: 24px; border-radius: 50%; background-color: #0052CC; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;"></div>
+                            <div id="assigneeName"></div>
+                        </div>
+                    </div>
+
+                    <div id="manualAssignee" style="display: none;">
+                        <div style="margin-bottom: 15px;">
+                            <label for="manualAssigneeInput" style="display: block; margin-bottom: 5px; font-weight: bold;">Assignee Name:</label>
+                            <input type="text" id="manualAssigneeInput" placeholder="Enter any assignee name" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label for="labels" style="display: block; margin-bottom: 5px; font-weight: bold;">Labels (comma separated)</label>
+                    <input type="text" id="labels" placeholder="frontend, bug, critical" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                    <button type="button" onclick="closeModal()" style="padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; background-color: #eee;">Cancel</button>
+                    <button type="submit" style="padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; background-color: #0052CC; color: white;">Create Defect</button>
+                </div>
+            </form>
+            <div class="loading" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,255,255,0.9); padding: 20px; border-radius: 4px; text-align: center;">Creating defect...</div>
+            <div id="successMessage" style="display: none; color: green; margin-top: 10px; padding: 10px; background-color: #e6ffe6; border-radius: 4px;"></div>
+            <div id="errorMessage" style="display: none; color: red; margin-top: 10px; padding: 10px; background-color: #ffe6e6; border-radius: 4px;"></div>
+        </div>
+    </div>
+
+    <script>
+        const priorityAssignees = {
+            'Highest': {
+                id: 'TECH_LEAD_ID',
+                name: 'John Smith',
+                role: 'Tech Lead'
+            },
+            'High': {
+                id: 'SENIOR_DEV_ID',
+                name: 'Sarah Johnson',
+                role: 'Senior Developer'
+            },
+            'Medium': {
+                id: 'MID_DEV_ID',
+                name: 'Mike Wilson',
+                role: 'Mid-level Developer'
+            },
+            'Low': {
+                id: 'JUNIOR_DEV_ID',
+                name: 'Lisa Brown',
+                role: 'Junior Developer'
+            },
+            'Lowest': {
+                id: 'JUNIOR_DEV_ID',
+                name: 'Lisa Brown',
+                role: 'Junior Developer'
+            }
+        };
+
+        function updateAssigneeInfo(priority) {
+            const assignee = priorityAssignees[priority];
+            const assigneeAvatar = document.querySelector('.assignee-avatar');
+            const assigneeName = document.getElementById('assigneeName');
+            
+            if (assignee) {
+                assigneeAvatar.textContent = assignee.name.split(' ').map(n => n[0]).join('');
+                assigneeName.textContent = `${assignee.name} (${assignee.role})`;
+            }
+        }
+
+        function setupAssigneeToggle() {
+            const radios = document.querySelectorAll('input[name="assigneeType"]');
+            const autoSection = document.getElementById('autoAssignee');
+            const manualSection = document.getElementById('manualAssignee');
+
+            radios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.value === 'auto') {
+                        autoSection.style.display = 'block';
+                        manualSection.style.display = 'none';
+                        updateAssigneeInfo(document.getElementById('priority').value);
+                    } else {
+                        autoSection.style.display = 'none';
+                        manualSection.style.display = 'block';
+                    }
+                });
+            });
+        }
+
+        class JiraDefectCreator {
+            constructor(domain, email, apiToken) {
+                this.baseUrl = `https://${domain}.atlassian.net/rest/api/3`;
+                this.auth = btoa(`${email}:${apiToken}`);
+            }
+
+            async createDefect(params) {
+                const endpoint = `${this.baseUrl}/issue`;
+                
+                const payload = {
+                    fields: {
+                        project: { key: params.projectKey },
+                        summary: params.summary,
+                        description: {
+                            type: "doc",
+                            version: 1,
+                            content: [
+                                {
+                                    type: "paragraph",
+                                    content: [{ text: params.description, type: "text" }]
+                                }
+                            ]
+                        },
+                        issuetype: { name: "Bug" },
+                        priority: { name: params.priority },
+                        labels: params.labels
+                    }
+                };
+
+                if (params.isAutoAssign) {
+                    payload.fields.assignee = { id: priorityAssignees[params.priority].id };
+                } else if (params.assignee) {
+                    payload.fields.assignee = { name: params.assignee };
+                }
+
+                if (params.reporterId) {
+                    payload.fields.reporter = { id: params.reporterId };
+                }
+
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Basic ${this.auth}`,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to create JIRA issue');
+                }
+
+                return response.json();
+            }
+        }
+
+        const jira = new JiraDefectCreator('your-domain', 'your-email@example.com', 'your-api-token');
+
+        document.getElementById('priority').addEventListener('change', (e) => {
+            if (document.querySelector('input[name="assigneeType"]:checked').value === 'auto') {
+                updateAssigneeInfo(e.target.value);
+            }
+        });
+
+        document.getElementById('createDefectBtn').onclick = function() {
+            document.getElementById('defectModal').style.display = 'block';
+            setupAssigneeToggle();
+            updateAssigneeInfo(document.getElementById('priority').value);
+        };
+
+        function closeModal() {
+            document.getElementById('defectModal').style.display = 'none';
+            document.getElementById('defectForm').reset();
+            document.getElementById('successMessage').style.display = 'none';
+            document.getElementById('errorMessage').style.display = 'none';
+            document.querySelector('input[value="auto"]').checked = true;
+            document.getElementById('autoAssignee').style.display = 'block';
+            document.getElementById('manualAssignee').style.display = 'none';
+            updateAssigneeInfo('Medium');
+        }
+
+        document.getElementById('defectForm').onsubmit = async function(e) {
+            e.preventDefault();
+            
+            const loading = document.querySelector('.loading');
+            const successMessage = document.getElementById('successMessage');
+            const errorMessage = document.getElementById('errorMessage');
+            
+            loading.style.display = "block";
+            successMessage.style.display = "none";
+            errorMessage.style.display = "none";
+
+            try {
+                const reporterId = await getCurrentUser();
+                const isAutoAssign = document.querySelector('input[name="assigneeType"]:checked').value === 'auto';
+
+                const result = await jira.createDefect({
+                    projectKey: document.getElementById('projectKey').value,
+                    summary: document.getElementById('summary').value,
+                    description: document.getElementById('description').value,
+                    priority: document.getElementById('priority').value,
+                    labels: document.getElementById('labels').value.split(',').map(label => label.trim()).filter(Boolean),
+                    assignee: document.getElementById('manualAssigneeInput').value,
+                    isAutoAssign: isAutoAssign,
+                    reporterId: reporterId
+                });
+
+                successMessage.textContent = `Defect created successfully! Issue key: ${result.key}`;
+                successMessage.style.display = "block";
+                setTimeout(closeModal, 2000);
+            } catch (error) {
+                errorMessage.textContent = `Error creating defect: ${error.message}`;
+                errorMessage.style.display = "block";
+            } finally {
+                loading.style.display = "none";
+            }
+        };
+
+        updateAssigneeInfo('Medium');
+    </script>
+</body>
+</html>
