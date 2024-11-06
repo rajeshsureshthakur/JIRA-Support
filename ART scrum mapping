@@ -1,0 +1,97 @@
+```html
+<!-- Add this HTML section after the project key field -->
+<div style="margin-bottom: 15px;">
+    <label for="artSelect" style="display: block; margin-bottom: 5px; font-weight: bold;">ART</label>
+    <select id="artSelect" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+        <option value="">Select ART</option>
+    </select>
+</div>
+
+<div style="margin-bottom: 15px;">
+    <label for="scrumSelect" style="display: block; margin-bottom: 5px; font-weight: bold;">Scrum Team</label>
+    <select id="scrumSelect" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;" disabled>
+        <option value="">Select Scrum Team</option>
+    </select>
+</div>
+
+<!-- Add this JavaScript code -->
+<script>
+// Define your ART and Scrum team structure
+const artScrumMapping = {
+    'ART1': {
+        name: 'ART Team 1',
+        scrums: [
+            { id: 'scrum1_1', name: 'Scrum Team 1.1' },
+            { id: 'scrum1_2', name: 'Scrum Team 1.2' },
+            { id: 'scrum1_3', name: 'Scrum Team 1.3' }
+        ]
+    },
+    'ART2': {
+        name: 'ART Team 2',
+        scrums: [
+            { id: 'scrum2_1', name: 'Scrum Team 2.1' },
+            { id: 'scrum2_2', name: 'Scrum Team 2.2' }
+        ]
+    },
+    'ART3': {
+        name: 'ART Team 3',
+        scrums: [
+            { id: 'scrum3_1', name: 'Scrum Team 3.1' },
+            { id: 'scrum3_2', name: 'Scrum Team 3.2' },
+            { id: 'scrum3_3', name: 'Scrum Team 3.3' }
+        ]
+    }
+};
+
+// Function to populate ART dropdown
+function populateArtDropdown() {
+    const artSelect = document.getElementById('artSelect');
+    artSelect.innerHTML = '<option value="">Select ART</option>';
+    
+    Object.keys(artScrumMapping).forEach(artId => {
+        const art = artScrumMapping[artId];
+        const option = new Option(art.name, artId);
+        artSelect.add(option);
+    });
+}
+
+// Function to update Scrum team dropdown based on selected ART
+function updateScrumDropdown(selectedArtId) {
+    const scrumSelect = document.getElementById('scrumSelect');
+    scrumSelect.innerHTML = '<option value="">Select Scrum Team</option>';
+    
+    if (selectedArtId && artScrumMapping[selectedArtId]) {
+        const scrumTeams = artScrumMapping[selectedArtId].scrums;
+        scrumTeams.forEach(scrum => {
+            const option = new Option(scrum.name, scrum.id);
+            scrumSelect.add(option);
+        });
+        scrumSelect.disabled = false;
+    } else {
+        scrumSelect.disabled = true;
+    }
+}
+
+// Add event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    const artSelect = document.getElementById('artSelect');
+    const scrumSelect = document.getElementById('scrumSelect');
+    
+    // Populate ART dropdown initially
+    populateArtDropdown();
+    
+    // Handle ART selection change
+    artSelect.addEventListener('change', function() {
+        updateScrumDropdown(this.value);
+    });
+});
+
+// Modify your modal open function to include initialization
+document.getElementById('createDefectBtn').onclick = function() {
+    document.getElementById('defectModal').style.display = 'block';
+    populateArtDropdown();
+    updateScrumDropdown('');
+    updateAssigneeList();
+};
+</script>
+```
