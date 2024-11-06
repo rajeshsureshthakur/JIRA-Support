@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- Previous head and style sections remain same, just adding new styles -->
+<head>
+    <meta charset="UTF-8">
+    <title>Create JIRA Defect</title>
+    <style>
+        /* Previous styles remain */
+        .assignee-section {
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+
+        .assignee-toggle {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 4px;
+        }
+
+        .assignee-info {
+            margin-top: 5px;
+            padding: 8px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .assignee-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background-color: #0052CC;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+        }
+
+        .manual-assignee {
+            display: none;
+        }
+
+        .manual-assignee.active {
+            display: block;
+        }
+
+        .auto-assignee.hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <button id="createDefectBtn">Create JIRA Defect</button>
+
+    <div id="defectModal" class="modal">
+        <div class="modal-content">
+            <h2>Create JIRA Defect</h2>
+            <form id="defectForm">
+                <div class="form-group">
+                    <label for="projectKey">Project Key*</label>
+                    <input type="text" id="projectKey" required>
+                </div>
+                <div class="form-group">
+                    <label for="summary">Summary*</label>
+                    <input type="text" id="summary" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description*</label>
+                    <textarea id="description" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="priority">Priority</label>
+                    <select id="priority">
+                        <option value="Highest">Highest</option>
+                        <option value="High">High</option>
+                        <option value="Medium" selected>Medium</option>
+                        <option value="Low">Low</option>
+                        <option value="Lowest">Lowest</option>
+                    </select>
+                </div>
+
+                <!-- Assignee section -->
+                <div class="assignee-section">
+                    <div class="assignee-toggle">
+                        <label>
+                            <input type="radio" name="assigneeType" value="auto" checked>
+                            Automatic Assignment
+                        </label>
+                        <label>
+                            <input type="radio" name="assigneeType" value="manual">
+                            Manual Assignment
+                        </label>
+                    </div>
+
+                    <!-- Automatic assignee info -->
+                    <div id="autoAssignee" class="auto-assignee">
+                        <label>Priority-based Assignee:</label>
+                        <div class="assignee-info">
+                            <div class="assignee-avatar"></div>
+                            <div id="assigneeName"></div>
+                        </div>
+                    </div>
+
+                    <!-- Manual assignee with free text -->
+                    <div id="manualAssignee" class="manual-assignee">
+                        <div class="form-group">
+                            <label for="manualAssigneeInput">Assignee Name:</label>
+                            <input type="text" id="manualAssigneeInput" 
+                                   placeholder="Enter any assignee name"
+                                   class="assignee-input">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="labels">Labels (comma separated)</label>
+                    <input type="text" id="labels" placeholder="frontend, bug, critical">
+                </div>
+                
+                <div class="button-group">
+                    <button type="button" class="cancel-button" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="create-button">Create Defect</button>
+                </div>
+            </form>
+            <div class="loading">Creating defect...</div>
+            <div id="successMessage"></div>
+            <div id="errorMessage"></div>
+        </div>
+    </div>
+
+    <script>
+        // Priority to Assignee mapping for automatic assignment
+        const priorityAssignees = {
+            'Highest': {
+                id: 'TECH_LEAD_ID',
+                name: 'John Smith',
+                email: 'john.smith@company.com',
+                role: 'Tech Lead'
+            },
+            'High': {
+                id: 'SENIOR_DEV_ID',
+                name: 'Sarah Johnson',
+                email: 'sarah.johnson@company.com',
+                role: 'Senior Developer'
+            },
+            'Medium': {
+                id: 'MID_DEV_ID',
+                name: 'Mike Wilson',
+                email: 'mike.wilson@company.com',
+                role: 'Mid-level Developer'
+            },
+            'Low': {
+                id: 'JUNIOR_DEV_ID',
+                name: 'Lisa Brown',
+                email: 'lisa.brown@company.com',
+                role: 'Junior Developer'
+            },
+            'Lowest': {
+                id: 'JUNIOR_DEV_ID',
+                name: 'Lisa Brown',
+                email: 'lisa.brown@company.com',
+                role: 'Junior Developer'
+            }
+        };
+
+        // Function to update assignee information in automatic mode
+        function updateAssigneeInfo(priority) {
+            const assignee = priorityAssignees[priority];
+            const assigneeAvatar = document.querySelector('.assignee-avatar');
+            const assigneeName = document.getElementById('assigneeName');
+            
+            if (assignee) {
+                assigneeAvatar.textContent = assignee.name
+                    .split(' ')
+                    .map(n => n[0])
+                    .join('');
+                assigneeName.textContent = `${assignee.name} (${assignee.role})`;
+            }
+        }
+
+        class JiraDefectCreator {
+            constructor(domain, email, apiToken) {
+                this.baseUrl = `https://${domain}.atlassian.net/rest/api/3`;
+                this.auth = btoa(`${email}:${apiToken}`);
+            }
+
+            async createDefect({
+                projectKey,
+                summary,
+                description,
+                priority = 'Medium',
+                labels = [],
+                assignee = null,
+                isAutoAssign = true
+            }) {
+                const endpoint = `${this.baseUrl}/issue`;
+                
+                const payload = {
+                    fields: {
+                        project: {
+                            key: projectKey
+                        },
+                        summary: summary,
+                        description: {
+                            type: "doc",
+                            version: 1,
+                            content: [
+                                {
+                                    type: "paragraph",
+                                    content: [
+                                        {
+                                            text: description,
+                                            type: "text"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        issuetype: {
+                            name: "Bug"
+                        },
+                        priority: {
+                            name: priority
+                        },
+                        labels: labels
+                    }
+                };
+
+                // Handle assignee based on assignment type
+                if (isAutoAssign) {
+                    // Use priority-based assignee
+                    payload.fields.assignee = {
+                        id: priorityAssignees[priority].id
+                    };
+                } else if (assignee) {
+                    // Use manual assignee name
+                    payload.fields.assignee = {
+                        name: assignee
+                    };
+                }
+
+                try {
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Basic ${this.auth}`,
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`Failed to create JIRA issue: ${JSON.stringify(errorData)}`);
+                    }
+
+                    return await response.json();
+                } catch (error) {
+                    console.error('Error creating JIRA defect:', error);
+                    throw error;
+                }
+            }
+        }
+
+        // Initialize JIRA client
+        const jira = new JiraDefectCreator(
+            'your-domain',
+            'your-email@example.com',
+            'your-api-token'
+        );
+
+        // Modal and form handling
+        const modal = document.getElementById('defectModal');
+        const btn = document.getElementById('createDefectBtn');
+        const form = document.getElementById('defectForm');
+        const loading = document.querySelector('.loading');
+        const successMessage = document.getElementById('successMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        const prioritySelect = document.getElementById('priority');
+
+        // Set initial assignee based on default priority
+        updateAssigneeInfo(prioritySelect.value);
+
+        // Update assignee when priority changes (only affects automatic mode)
+        prioritySelect.addEventListener('change', (e) => {
+            if (document.querySelector('input[name="assigneeType"]:checked').value === 'auto') {
+                updateAssigneeInfo(e.target.value);
+            }
+        });
+
+        // Handle assignee type toggle
+        document.querySelectorAll('input[name="assigneeType"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                const isAuto = e.target.value === 'auto';
+                document.getElementById('autoAssignee').classList.toggle('hidden', !isAuto);
+                document.getElementById('manualAssignee').classList.toggle('active', !isAuto);
+                if (isAuto) {
+                    updateAssigneeInfo(prioritySelect.value);
+                }
+            });
+        });
+
+        btn.onclick = function() {
+            modal.style.display = "block";
+        }
+
+        function closeModal() {
+            modal.style.display = "none";
+            form.reset();
+            successMessage.style.display = "none";
+            errorMessage.style.display = "none";
+            // Reset assignee to default (Medium priority)
+            updateAssigneeInfo('Medium');
+            // Reset assignee type to automatic
+            document.querySelector('input[value="auto"]').checked = true;
+            document.getElementById('autoAssignee').classList.remove('hidden');
+            document.getElementById('manualAssignee').classList.remove('active');
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+
+        // Form submission
+        form.onsubmit = async function(e) {
+            e.preventDefault();
+            
+            loading.style.display = "block";
+            successMessage.style.display = "none";
+            errorMessage.style.display = "none";
+
+            const isAutoAssign = document.querySelector('input[name="assigneeType"]:checked').value === 'auto';
+            const priority = document.getElementById('priority').value;
+            const manualAssigneeName = document.getElementById('manualAssigneeInput').value;
+
+            try {
+                const result = await jira.createDefect({
+                    projectKey: document.getElementById('projectKey').value,
+                    summary: document.getElementById('summary').value,
+                    description: document.getElementById('description').value,
+                    priority: priority,
+                    labels: document.getElementById('labels').value.split(',').map(label => label.trim()).filter(Boolean),
+                    assignee: manualAssigneeName,
+                    isAutoAssign: isAutoAssign
+                });
+
+                successMessage.textContent = `Defect created successfully! Issue key: ${result.key}`;
+                successMessage.style.display = "block";
+                setTimeout(closeModal, 2000);
+            } catch (error) {
+                errorMessage.textContent = `Error creating defect: ${error.message}`;
+                errorMessage.style.display = "block";
+            } finally {
+                loading.style.display = "none";
+            }
+        };
+    </script>
+</body>
+</html>
