@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- Previous head content remains same -->
+<head>
+    <meta charset="UTF-8">
+    <title>Create JIRA Defect</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <style>
+        /* Previous styles remain */
+        .assignee-input-container {
+            position: relative;
+        }
+
+        .assignee-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .suggestions {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 0 0 4px 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .suggestion-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        .suggestion-item:hover {
+            background-color: #f5f5f5;
+        }
+
+        .suggestion-detail {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        .no-match {
+            padding: 8px 12px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .warning-text {
+            color: #856404;
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 5px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Previous modal structure remains same until the assignee section -->
+    <button id="createDefectBtn">Create JIRA Defect</button>
+
+    <div id="defectModal" class="modal">
+        <div class="modal-content">
+            <h2>Create JIRA Defect</h2>
+            <form id="defectForm">
+                <!-- Previous form fields remain the same -->
+                <div class="form-group">
+                    <label for="projectKey">Project Key*</label>
+                    <input type="text" id="projectKey" required>
+                </div>
+                <div class="form-group">
+                    <label for="summary">Summary*</label>
+                    <input type="text" id="summary" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description*</label>
+                    <textarea id="description" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="priority">Priority</label>
+                    <select id="priority">
+                        <option value="Highest">Highest</option>
+                        <option value="High">High</option>
+                        <option value="Medium" selected>Medium</option>
+                        <option value="Low">Low</option>
+                        <option value="Lowest">Lowest</option>
+                    </select>
+                </div>
+
+                <!-- Modified assignee section -->
+                <div class="assignee-section">
+                    <div class="assignee-toggle">
+                        <label>
+                            <input type="radio" name="assigneeType" value="auto" checked>
+                            Automatic Assignment
+                        </label>
+                        <label>
+                            <input type="radio" name="assigneeType" value="manual">
+                            Manual Assignment
+                        </label>
+                    </div>
+
+                    <!-- Automatic assignee info -->
+                    <div id="autoAssignee" class="auto-assignee">
+                        <label>Priority-based Assignee:</label>
+                        <div class="assignee-info">
+                            <div class="assignee-avatar"></div>
+                            <div id="assigneeName"></div>
+                        </div>
+                    </div>
+
+                    <!-- Manual assignee with text input -->
+                    <div id="manualAssignee" class="manual-assignee">
+                        <div class="form-group">
+                            <label for="assigneeInput">Enter Assignee (name or ID):</label>
+                            <div class="assignee-input-container">
+                                <input type="text" id="assigneeInput" class="assignee-input" placeholder="Start typing name or ID...">
+                                <input type="hidden" id="selectedAssigneeId">
+                                <div class="suggestions"></div>
+                            </div>
+                            <div id="assigneeWarning" class="warning-text">
+                                Please select a valid assignee from the suggestions
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="labels">Labels (comma separated)</label>
+                    <input type="text" id="labels" placeholder="frontend, bug, critical">
+                </div>
+                
+                <div class="button-group">
+                    <button type="button" class="cancel-button" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="create-button">Create Defect</button>
+                </div>
+            </form>
+            <div class="loading">Creating defect...</div>
+            <div id="successMessage"></div>
+            <div id="errorMessage"></div>
+        </div>
+    </div>
+
+    <script>
+        // Previous teamMembers and priorityAssignees objects remain the same
+
+        // Function to filter and show suggestions
+        function showSuggestions(searchText) {
+            const suggestionsDiv = document.querySelector('.suggestions');
+            const warning = document.getElementById('assigneeWarning');
+            searchText = searchText.toLowerCase();
+            
+            // Filter team members based on search text
+            const matches = Object.values(teamMembers).filter(member => 
+                member.name.toLowerCase().includes(searchText) ||
+                member.id.toLowerCase().includes(searchText) ||
+                member.email.toLowerCase().includes(searchText)
+            );
+
+            if (searchText.length === 0) {
+                suggestionsDiv.style.display = 'none';
+                warning.style.display = 'none';
+                return;
+            }
+
+            suggestionsDiv.style.display = 'block';
+            suggestionsDiv.innerHTML = '';
+
+            if (matches.length === 0) {
+                suggestionsDiv.innerHTML = '<div class="no-match">No matching assignee found</div>';
+                warning.style.display = 'block';
+            } else {
+                warning.style.display = 'none';
+                matches.forEach(member => {
+                    const div = document.createElement('div');
+                    div.className = 'suggestion-item';
+                    div.innerHTML = `
+                        <div>${member.name}</div>
+                        <div class="suggestion-detail">${member.role} • ${member.email}</div>
+                    `;
+                    div.addEventListener('click', () => selectAssignee(member));
+                    suggestionsDiv.appendChild(div);
+                });
+            }
+        }
+
+        // Function to handle assignee selection
+        function selectAssignee(member) {
+            const input = document.getElementById('assigneeInput');
+            const hiddenInput = document.getElementById('selectedAssigneeId');
+            const suggestionsDiv = document.querySelector('.suggestions');
+            const warning = document.getElementById('assigneeWarning');
+            
+            input.value = member.name;
+            hiddenInput.value = member.id;
+            suggestionsDiv.style.display = 'none';
+            warning.style.display = 'none';
+        }
+
+        // Setup event listeners for assignee input
+        const assigneeInput = document.getElementById('assigneeInput');
+        let debounceTimeout;
+
+        assigneeInput.addEventListener('input', (e) => {
+            const hiddenInput = document.getElementById('selectedAssigneeId');
+            hiddenInput.value = ''; // Clear selected ID when input changes
+            
+            clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(() => {
+                showSuggestions(e.target.value);
+            }, 300);
+        });
+
+        assigneeInput.addEventListener('blur', () => {
+            // Delay hiding suggestions to allow click events to fire
+            setTimeout(() => {
+                document.querySelector('.suggestions').style.display = 'none';
+            }, 200);
+        });
+
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.assignee-input-container')) {
+                document.querySelector('.suggestions').style.display = 'none';
+            }
+        });
+
+        // Previous modal and form handling code remains the same, modify the form submission:
+        form.onsubmit = async function(e) {
+            e.preventDefault();
+            
+            const isAutoAssign = document.querySelector('input[name="assigneeType"]:checked').value === 'auto';
+            const selectedAssigneeId = document.getElementById('selectedAssigneeId').value;
+            
+            // Validate manual assignee if selected
+            if (!isAutoAssign && !selectedAssigneeId) {
+                document.getElementById('assigneeWarning').style.display = 'block';
+                return;
+            }
+
+            loading.style.display = "block";
+            successMessage.style.display = "none";
+            errorMessage.style.display = "none";
+
+            try {
+                const result = await jira.createDefect({
+                    projectKey: document.getElementById('projectKey').value,
+                    summary: document.getElementById('summary').value,
+                    description: document.getElementById('description').value,
+                    priority: document.getElementById('priority').value,
+                    labels: document.getElementById('labels').value.split(',').map(label => label.trim()).filter(Boolean),
+                    assigneeId: isAutoAssign ? null : selectedAssigneeId
+                });
+
+                successMessage.textContent = `Defect created successfully! Issue key: ${result.key}`;
+                successMessage.style.display = "block";
+                setTimeout(closeModal, 2000);
+            } catch (error) {
+                errorMessage.textContent = `Error creating defect: ${error.message}`;
+                errorMessage.style.display = "block";
+            } finally {
+                loading.style.display = "none";
+            }
+        };
+
+        // Previous modal initialization code remains the same
+    </script>
+</body>
+</html>
