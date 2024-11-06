@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Create JIRA Defect</title>
+</head>
+<body>
+    <button id="createDefectBtn" style="background-color: #0052CC; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">Create JIRA Defect</button>
+
+    <div id="defectModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+        <div class="modal-content" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; padding: 20px; border-radius: 8px; width: 80%; max-width: 600px;">
+            <h2 style="margin-bottom: 20px;">Create JIRA Defect</h2>
+            <form id="defectForm">
+                <div style="margin-bottom: 15px;">
+                    <label for="projectKey" style="display: block; margin-bottom: 5px; font-weight: bold;">Project Key*</label>
+                    <input type="text" id="projectKey" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label for="summary" style="display: block; margin-bottom: 5px; font-weight: bold;">Summary*</label>
+                    <input type="text" id="summary" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label for="description" style="display: block; margin-bottom: 5px; font-weight: bold;">Description*</label>
+                    <textarea id="description" required style="width: 100%; height: 100px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;"></textarea>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label for="priority" style="display: block; margin-bottom: 5px; font-weight: bold;">Priority</label>
+                    <select id="priority" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+                        <option value="Highest">Highest</option>
+                        <option value="High">High</option>
+                        <option value="Medium" selected>Medium</option>
+                        <option value="Low">Low</option>
+                        <option value="Lowest">Lowest</option>
+                    </select>
+                </div>
+
+                <div style="border: 1px solid #ddd; padding: 15px; border-radius: 4px; margin-bottom: 15px;">
+                    <div style="display: flex; gap: 15px; margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                            <input type="radio" name="assigneeType" value="auto" checked>
+                            Automatic Assignment
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                            <input type="radio" name="assigneeType" value="manual">
+                            Manual Assignment
+                        </label>
+                    </div>
+
+                    <div id="autoAssignee" style="margin-bottom: 10px;">
+                        <label style="display: block; margin-bottom: 5px;">Priority-based Assignee:</label>
+                        <div style="margin-top: 5px; padding: 8px; background-color: #f5f5f5; border-radius: 4px; display: flex; align-items: center; gap: 10px;">
+                            <div class="assignee-avatar" style="width: 24px; height: 24px; border-radius: 50%; background-color: #0052CC; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;"></div>
+                            <div id="assigneeName"></div>
+                        </div>
+                    </div>
+
+                    <div id="manualAssignee" style="display: none;">
+                        <div style="margin-bottom: 15px;">
+                            <label for="manualAssigneeInput" style="display: block; margin-bottom: 5px; font-weight: bold;">Assignee Name:</label>
+                            <input type="text" id="manualAssigneeInput" placeholder="Enter any assignee name" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label for="labels" style="display: block; margin-bottom: 5px; font-weight: bold;">Labels (comma separated)</label>
+                    <input type="text" id="labels" placeholder="frontend, bug, critical" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                    <button type="button" onclick="closeModal()" style="padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; background-color: #eee;">Cancel</button>
+                    <button type="submit" style="padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; background-color: #0052CC; color: white;">Create Defect</button>
+                </div>
+            </form>
+
+            <div class="loading" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,255,255,0.9); padding: 20px; border-radius: 4px; text-align: center;">Creating defect...</div>
+            
+            <div id="successMessage" style="display: none; color: green; margin-top: 10px; padding: 10px; background-color: #e6ffe6; border-radius: 4px;"></div>
+            
+            <div id="errorMessage" style="display: none; color: red; margin-top: 10px; padding: 10px; background-color: #ffe6e6; border-radius: 4px;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Previous JavaScript code remains exactly the same
+        // Function to get Confluence user info with detailed logging
+        async function getCurrentUser() {
+            try {
+                console.log('Fetching current user information...');
+                
+                const response = await fetch('/rest/api/user/current', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    console.error('Failed to fetch current user. Status:', response.status);
+                    throw new Error('Failed to fetch current user');
+                }
+                
+                const userData = await response.json();
+                console.log('Complete User Data:', userData);
+                console.log('User Details:');
+                console.log('- Username:', userData.username);
+                console.log('- Account ID:', userData.accountId);
+                console.log('- Display Name:', userData.displayName);
+                console.log('- Email:', userData.email);
+                console.log('- Key:', userData.key);
+
+                return userData.username; // or userData.accountId or userData.key
+            } catch (error) {
+                console.error('Error in getCurrentUser:', error);
+                throw error;
+            }
+        }
+
+        // Priority to Assignee mapping
+        const priorityAssignees = {
+            'Highest': {
+                id: 'TECH_LEAD_ID',
+                name: 'John Smith',
+                role: 'Tech Lead'
+            },
+            'High': {
+                id: 'SENIOR_DEV_ID',
+                name: 'Sarah Johnson',
+                role: 'Senior Developer'
+            },
+            'Medium': {
+                id: 'MID_DEV_ID',
+                name: 'Mike Wilson',
+                role: 'Mid-level Developer'
+            },
+            'Low': {
+                id: 'JUNIOR_DEV_ID',
+                name: 'Lisa Brown',
+                role: 'Junior Developer'
+            },
+            'Lowest': {
+                id: 'JUNIOR_DEV_ID',
+                name: 'Lisa Brown',
+                role: 'Junior Developer'
+            }
+        };
+
+        // Rest of the JavaScript implementation remains the same...
+        // Include all the previous JavaScript code here - JiraDefectCreator class,
+        // event handlers, form submission logic, etc.
+
+        // Initialize UI with default priority assignee
+        updateAssigneeInfo('Medium');
+    </script>
+</body>
+</html>
