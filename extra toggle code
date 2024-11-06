@@ -1,0 +1,30 @@
+<!-- Replace the existing assignee section with this -->
+<div style="border: 1px solid #ddd; padding: 15px; border-radius: 4px; margin-bottom: 15px;">
+    <div style="display: flex; gap: 15px; margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+            <input type="radio" name="assigneeType" value="auto" checked>
+            Automatic Assignment
+        </label>
+        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+            <input type="radio" name="assigneeType" value="manual">
+            Manual Assignment
+        </label>
+    </div>
+
+    <!-- Auto assignee section -->
+    <div id="autoAssignee" style="margin-bottom: 10px;">
+        <label style="display: block; margin-bottom: 5px;">Priority-based Assignee:</label>
+        <div style="margin-top: 5px; padding: 8px; background-color: #f5f5f5; border-radius: 4px; display: flex; align-items: center; gap: 10px;">
+            <div class="assignee-avatar" style="width: 24px; height: 24px; border-radius: 50%; background-color: #0052CC; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;"></div>
+            <div id="assigneeName"></div>
+        </div>
+    </div>
+
+    <!-- Manual assignee section -->
+    <div id="manualAssignee" style="display: none;">
+        <div style="margin-bottom: 15px;">
+            <label for="manualAssigneeInput" style="display: block; margin-bottom: 5px; font-weight: bold;">Assignee Name:</label>
+            <input type="text" id="manualAssigneeInput" placeholder="Enter any assignee name" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+        </div>
+    </div>
+</div>
