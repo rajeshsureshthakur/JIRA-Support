@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Create JIRA Defect</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <style>
+        /* Previous styles remain the same */
+        .assignee-section {
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+
+        .assignee-toggle {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 4px;
+        }
+
+        .assignee-toggle label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+
+        .assignee-info {
+            margin-top: 5px;
+            padding: 8px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .assignee-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background-color: #0052CC;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+        }
+
+        .manual-assignee {
+            display: none;
+        }
+
+        .manual-assignee.active {
+            display: block;
+        }
+
+        .auto-assignee.hidden {
+            display: none;
+        }
+
+        select:disabled {
+            background-color: #f5f5f5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <button id="createDefectBtn">Create JIRA Defect</button>
+
+    <div id="defectModal" class="modal">
+        <div class="modal-content">
+            <h2>Create JIRA Defect</h2>
+            <form id="defectForm">
+                <!-- Previous form fields remain the same -->
+                <div class="form-group">
+                    <label for="projectKey">Project Key*</label>
+                    <input type="text" id="projectKey" required>
+                </div>
+                <div class="form-group">
+                    <label for="summary">Summary*</label>
+                    <input type="text" id="summary" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description*</label>
+                    <textarea id="description" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="priority">Priority</label>
+                    <select id="priority">
+                        <option value="Highest">Highest</option>
+                        <option value="High">High</option>
+                        <option value="Medium" selected>Medium</option>
+                        <option value="Low">Low</option>
+                        <option value="Lowest">Lowest</option>
+                    </select>
+                </div>
+
+                <!-- New assignee section -->
+                <div class="assignee-section">
+                    <div class="assignee-toggle">
+                        <label>
+                            <input type="radio" name="assigneeType" value="auto" checked>
+                            Automatic Assignment
+                        </label>
+                        <label>
+                            <input type="radio" name="assigneeType" value="manual">
+                            Manual Assignment
+                        </label>
+                    </div>
+
+                    <!-- Automatic assignee info -->
+                    <div id="autoAssignee" class="auto-assignee">
+                        <label>Priority-based Assignee:</label>
+                        <div class="assignee-info">
+                            <div class="assignee-avatar"></div>
+                            <div id="assigneeName"></div>
+                        </div>
+                    </div>
+
+                    <!-- Manual assignee selection -->
+                    <div id="manualAssignee" class="manual-assignee">
+                        <div class="form-group">
+                            <label for="assigneeSelect">Select Assignee:</label>
+                            <select id="assigneeSelect">
+                                <option value="">Select an assignee...</option>
+                                <!-- Options will be populated dynamically -->
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="labels">Labels (comma separated)</label>
+                    <input type="text" id="labels" placeholder="frontend, bug, critical">
+                </div>
+                
+                <div class="button-group">
+                    <button type="button" class="cancel-button" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="create-button">Create Defect</button>
+                </div>
+            </form>
+            <div class="loading">Creating defect...</div>
+            <div id="successMessage"></div>
+            <div id="errorMessage"></div>
+        </div>
+    </div>
+
+    <script>
+        // Team members data
+        const teamMembers = {
+            'TECH_LEAD_ID': {
+                id: 'TECH_LEAD_ID',
+                name: 'John Smith',
+                email: 'john.smith@company.com',
+                role: 'Tech Lead'
+            },
+            'SENIOR_DEV_ID': {
+                id: 'SENIOR_DEV_ID',
+                name: 'Sarah Johnson',
+                email: 'sarah.johnson@company.com',
+                role: 'Senior Developer'
+            },
+            'MID_DEV_ID': {
+                id: 'MID_DEV_ID',
+                name: 'Mike Wilson',
+                email: 'mike.wilson@company.com',
+                role: 'Mid-level Developer'
+            },
+            'JUNIOR_DEV_ID': {
+                id: 'JUNIOR_DEV_ID',
+                name: 'Lisa Brown',
+                email: 'lisa.brown@company.com',
+                role: 'Junior Developer'
+            }
+        };
+
+        // Priority to Assignee mapping
+        const priorityAssignees = {
+            'Highest': teamMembers['TECH_LEAD_ID'],
+            'High': teamMembers['SENIOR_DEV_ID'],
+            'Medium': teamMembers['MID_DEV_ID'],
+            'Low': teamMembers['JUNIOR_DEV_ID'],
+            'Lowest': teamMembers['JUNIOR_DEV_ID']
+        };
+
+        // Populate manual assignee select
+        const assigneeSelect = document.getElementById('assigneeSelect');
+        Object.values(teamMembers).forEach(member => {
+            const option = document.createElement('option');
+            option.value = member.id;
+            option.textContent = `${member.name} (${member.role})`;
+            assigneeSelect.appendChild(option);
+        });
+
+        // Function to update assignee information
+        function updateAssigneeInfo(priority) {
+            const assignee = priorityAssignees[priority];
+            const assigneeAvatar = document.querySelector('.assignee-avatar');
+            const assigneeName = document.getElementById('assigneeName');
+            
+            if (assignee) {
+                assigneeAvatar.textContent = assignee.name
+                    .split(' ')
+                    .map(n => n[0])
+                    .join('');
+                assigneeName.textContent = `${assignee.name} (${assignee.role})`;
+            }
+        }
+
+        // Handle assignee type toggle
+        document.querySelectorAll('input[name="assigneeType"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                const isAuto = e.target.value === 'auto';
+                document.getElementById('autoAssignee').classList.toggle('hidden', !isAuto);
+                document.getElementById('manualAssignee').classList.toggle('active', !isAuto);
+            });
+        });
+
+        // JIRA API Integration class
+        class JiraDefectCreator {
+            constructor(domain, email, apiToken) {
+                this.baseUrl = `https://${domain}.atlassian.net/rest/api/3`;
+                this.auth = btoa(`${email}:${apiToken}`);
+            }
+
+            async createDefect({
+                projectKey,
+                summary,
+                description,
+                priority = 'Medium',
+                labels = [],
+                assigneeId = null
+            }) {
+                const endpoint = `${this.baseUrl}/issue`;
+                
+                // Get assignee based on priority or manual selection
+                const assignee = assigneeId || priorityAssignees[priority].id;
+                
+                const payload = {
+                    fields: {
+                        project: {
+                            key: projectKey
+                        },
+                        summary: summary,
+                        description: {
+                            type: "doc",
+                            version: 1,
+                            content: [
+                                {
+                                    type: "paragraph",
+                                    content: [
+                                        {
+                                            text: description,
+                                            type: "text"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        issuetype: {
+                            name: "Bug"
+                        },
+                        priority: {
+                            name: priority
+                        },
+                        labels: labels,
+                        assignee: {
+                            id: assignee
+                        }
+                    }
+                };
+
+                try {
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Basic ${this.auth}`,
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`Failed to create JIRA issue: ${JSON.stringify(errorData)}`);
+                    }
+
+                    return await response.json();
+                } catch (error) {
+                    console.error('Error creating JIRA defect:', error);
+                    throw error;
+                }
+            }
+        }
+
+        // Initialize JIRA client
+        const jira = new JiraDefectCreator(
+            'your-domain',
+            'your-email@example.com',
+            'your-api-token'
+        );
+
+        // Modal and form handling
+        const modal = document.getElementById('defectModal');
+        const btn = document.getElementById('createDefectBtn');
+        const form = document.getElementById('defectForm');
+        const loading = document.querySelector('.loading');
+        const successMessage = document.getElementById('successMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        const prioritySelect = document.getElementById('priority');
+
+        // Set initial assignee based on default priority
+        updateAssigneeInfo(prioritySelect.value);
+
+        // Update assignee when priority changes
+        prioritySelect.addEventListener('change', (e) => {
+            updateAssigneeInfo(e.target.value);
+        });
+
+        btn.onclick = function() {
+            modal.style.display = "block";
+        }
+
+        function closeModal() {
+            modal.style.display = "none";
+            form.reset();
+            successMessage.style.display = "none";
+            errorMessage.style.display = "none";
+            // Reset assignee to default (Medium priority)
+            updateAssigneeInfo('Medium');
+            // Reset assignee type to automatic
+            document.querySelector('input[value="auto"]').checked = true;
+            document.getElementById('autoAssignee').classList.remove('hidden');
+            document.getElementById('manualAssignee').classList.remove('active');
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+
+        // Form submission
+        form.onsubmit = async function(e) {
+            e.preventDefault();
+            
+            loading.style.display = "block";
+            successMessage.style.display = "none";
+            errorMessage.style.display = "none";
+
+            const isAutoAssign = document.querySelector('input[name="assigneeType"]:checked').value === 'auto';
+            const manualAssigneeId = document.getElementById('assigneeSelect').value;
+
+            try {
+                const result = await jira.createDefect({
+                    projectKey: document.getElementById('projectKey').value,
+                    summary: document.getElementById('summary').value,
+                    description: document.getElementById('description').value,
+                    priority: document.getElementById('priority').value,
+                    labels: document.getElementById('labels').value.split(',').map(label => label.trim()).filter(Boolean),
+                    assigneeId: isAutoAssign ? null : manualAssigneeId
+                });
+
+                successMessage.textContent = `Defect created successfully! Issue key: ${result.key}`;
+                successMessage.style.display = "block";
+                setTimeout(closeModal, 2000);
+            } catch (error) {
+                errorMessage.textContent = `Error creating defect: ${error.message}`;
+                errorMessage.style.display = "block";
+            } finally {
+                loading.style.display = "none";
+            }
+        };
+    </script>
+</body>
+</html>
