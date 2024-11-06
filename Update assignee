@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Create JIRA Defect</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <style>
+        /* ... Previous CSS remains the same ... */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .assignee-info {
+            margin-top: 5px;
+            padding: 8px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .assignee-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background-color: #0052CC;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <button id="createDefectBtn">Create JIRA Defect</button>
+
+    <div id="defectModal" class="modal">
+        <div class="modal-content">
+            <h2>Create JIRA Defect</h2>
+            <form id="defectForm">
+                <div class="form-group">
+                    <label for="projectKey">Project Key*</label>
+                    <input type="text" id="projectKey" required>
+                </div>
+                <div class="form-group">
+                    <label for="summary">Summary*</label>
+                    <input type="text" id="summary" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description*</label>
+                    <textarea id="description" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="priority">Priority</label>
+                    <select id="priority">
+                        <option value="Highest">Highest</option>
+                        <option value="High">High</option>
+                        <option value="Medium" selected>Medium</option>
+                        <option value="Low">Low</option>
+                        <option value="Lowest">Lowest</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Assignee</label>
+                    <div id="assigneeInfo" class="assignee-info">
+                        <div class="assignee-avatar"></div>
+                        <div id="assigneeName"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="labels">Labels (comma separated)</label>
+                    <input type="text" id="labels" placeholder="frontend, bug, critical">
+                </div>
+                <div class="button-group">
+                    <button type="button" class="cancel-button" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="create-button">Create Defect</button>
+                </div>
+            </form>
+            <div class="loading">Creating defect...</div>
+            <div id="successMessage"></div>
+            <div id="errorMessage"></div>
+        </div>
+    </div>
+
+    <script>
+        // Priority to Assignee mapping
+        const priorityAssignees = {
+            'Highest': {
+                id: 'TECH_LEAD_ID',
+                name: 'John Smith',
+                email: 'john.smith@company.com'
+            },
+            'High': {
+                id: 'SENIOR_DEV_ID',
+                name: 'Sarah Johnson',
+                email: 'sarah.johnson@company.com'
+            },
+            'Medium': {
+                id: 'MID_DEV_ID',
+                name: 'Mike Wilson',
+                email: 'mike.wilson@company.com'
+            },
+            'Low': {
+                id: 'JUNIOR_DEV_ID',
+                name: 'Lisa Brown',
+                email: 'lisa.brown@company.com'
+            },
+            'Lowest': {
+                id: 'JUNIOR_DEV_ID',
+                name: 'Lisa Brown',
+                email: 'lisa.brown@company.com'
+            }
+        };
+
+        // Function to update assignee information
+        function updateAssigneeInfo(priority) {
+            const assignee = priorityAssignees[priority];
+            const assigneeAvatar = document.querySelector('.assignee-avatar');
+            const assigneeName = document.getElementById('assigneeName');
+            
+            if (assignee) {
+                // Set avatar initials
+                assigneeAvatar.textContent = assignee.name
+                    .split(' ')
+                    .map(n => n[0])
+                    .join('');
+                
+                // Set assignee name and email
+                assigneeName.textContent = `${assignee.name} (${assignee.email})`;
+            }
+        }
+
+        // JIRA API Integration class
+        class JiraDefectCreator {
+            constructor(domain, email, apiToken) {
+                this.baseUrl = `https://${domain}.atlassian.net/rest/api/3`;
+                this.auth = btoa(`${email}:${apiToken}`);
+            }
+
+            async createDefect({
+                projectKey,
+                summary,
+                description,
+                priority = 'Medium',
+                labels = [],
+            }) {
+                const endpoint = `${this.baseUrl}/issue`;
+                
+                // Get assignee based on priority
+                const assignee = priorityAssignees[priority];
+                
+                const payload = {
+                    fields: {
+                        project: {
+                            key: projectKey
+                        },
+                        summary: summary,
+                        description: {
+                            type: "doc",
+                            version: 1,
+                            content: [
+                                {
+                                    type: "paragraph",
+                                    content: [
+                                        {
+                                            text: description,
+                                            type: "text"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        issuetype: {
+                            name: "Bug"
+                        },
+                        priority: {
+                            name: priority
+                        },
+                        labels: labels,
+                        assignee: {
+                            id: assignee.id
+                        }
+                    }
+                };
+
+                try {
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Basic ${this.auth}`,
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`Failed to create JIRA issue: ${JSON.stringify(errorData)}`);
+                    }
+
+                    return await response.json();
+                } catch (error) {
+                    console.error('Error creating JIRA defect:', error);
+                    throw error;
+                }
+            }
+        }
+
+        // Initialize JIRA client
+        const jira = new JiraDefectCreator(
+            'your-domain',
+            'your-email@example.com',
+            'your-api-token'
+        );
+
+        // Modal handling
+        const modal = document.getElementById('defectModal');
+        const btn = document.getElementById('createDefectBtn');
+        const form = document.getElementById('defectForm');
+        const loading = document.querySelector('.loading');
+        const successMessage = document.getElementById('successMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        const prioritySelect = document.getElementById('priority');
+
+        // Set initial assignee based on default priority
+        updateAssigneeInfo(prioritySelect.value);
+
+        // Update assignee when priority changes
+        prioritySelect.addEventListener('change', (e) => {
+            updateAssigneeInfo(e.target.value);
+        });
+
+        btn.onclick = function() {
+            modal.style.display = "block";
+        }
+
+        function closeModal() {
+            modal.style.display = "none";
+            form.reset();
+            successMessage.style.display = "none";
+            errorMessage.style.display = "none";
+            // Reset assignee to default (Medium priority)
+            updateAssigneeInfo('Medium');
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+
+        // Form submission
+        form.onsubmit = async function(e) {
+            e.preventDefault();
+            
+            loading.style.display = "block";
+            successMessage.style.display = "none";
+            errorMessage.style.display = "none";
+
+            try {
+                const result = await jira.createDefect({
+                    projectKey: document.getElementById('projectKey').value,
+                    summary: document.getElementById('summary').value,
+                    description: document.getElementById('description').value,
+                    priority: document.getElementById('priority').value,
+                    labels: document.getElementById('labels').value.split(',').map(label => label.trim()).filter(Boolean),
+                });
+
+                successMessage.textContent = `Defect created successfully! Issue key: ${result.key}`;
+                successMessage.style.display = "block";
+                setTimeout(closeModal, 2000);
+            } catch (error) {
+                errorMessage.textContent = `Error creating defect: ${error.message}`;
+                errorMessage.style.display = "block";
+            } finally {
+                loading.style.display = "none";
+            }
+        };
+    </script>
+</body>
+</html>
