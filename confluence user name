@@ -1,0 +1,157 @@
+<!-- Previous HTML remains same, adding new function and modifying the API call -->
+
+<script>
+    // New function to get Confluence user info
+    async function getCurrentUser() {
+        try {
+            const response = await fetch('/rest/api/user/current', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to fetch current user');
+            }
+            
+            const userData = await response.json();
+            return userData.username; // or userData.key depending on your JIRA setup
+        } catch (error) {
+            console.error('Error fetching current user:', error);
+            throw error;
+        }
+    }
+
+    // Modified JIRA API Integration class
+    class JiraDefectCreator {
+        constructor(domain, email, apiToken) {
+            this.baseUrl = `https://${domain}.atlassian.net/rest/api/3`;
+            this.auth = btoa(`${email}:${apiToken}`);
+        }
+
+        async createDefect({
+            projectKey,
+            summary,
+            description,
+            priority = 'Medium',
+            labels = [],
+            assignee = null,
+            isAutoAssign = true,
+            reporterId = null
+        }) {
+            const endpoint = `${this.baseUrl}/issue`;
+            
+            const payload = {
+                fields: {
+                    project: {
+                        key: projectKey
+                    },
+                    summary: summary,
+                    description: {
+                        type: "doc",
+                        version: 1,
+                        content: [
+                            {
+                                type: "paragraph",
+                                content: [
+                                    {
+                                        text: description,
+                                        type: "text"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    issuetype: {
+                        name: "Bug"
+                    },
+                    priority: {
+                        name: priority
+                    },
+                    labels: labels
+                }
+            };
+
+            // Add reporter if available
+            if (reporterId) {
+                payload.fields.reporter = {
+                    id: reporterId
+                };
+            }
+
+            // Handle assignee based on assignment type
+            if (isAutoAssign) {
+                payload.fields.assignee = {
+                    id: priorityAssignees[priority].id
+                };
+            } else if (assignee) {
+                payload.fields.assignee = {
+                    name: assignee
+                };
+            }
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Basic ${this.auth}`,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Failed to create JIRA issue: ${JSON.stringify(errorData)}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error('Error creating JIRA defect:', error);
+                throw error;
+            }
+        }
+    }
+
+    // Modified form submission to include reporter
+    form.onsubmit = async function(e) {
+        e.preventDefault();
+        
+        loading.style.display = "block";
+        successMessage.style.display = "none";
+        errorMessage.style.display = "none";
+
+        const isAutoAssign = document.querySelector('input[name="assigneeType"]:checked').value === 'auto';
+        const priority = document.getElementById('priority').value;
+        const manualAssigneeName = document.getElementById('manualAssigneeInput').value;
+
+        try {
+            // Get current user ID first
+            const reporterId = await getCurrentUser();
+
+            const result = await jira.createDefect({
+                projectKey: document.getElementById('projectKey').value,
+                summary: document.getElementById('summary').value,
+                description: document.getElementById('description').value,
+                priority: priority,
+                labels: document.getElementById('labels').value.split(',').map(label => label.trim()).filter(Boolean),
+                assignee: manualAssigneeName,
+                isAutoAssign: isAutoAssign,
+                reporterId: reporterId
+            });
+
+            successMessage.textContent = `Defect created successfully! Issue key: ${result.key}`;
+            successMessage.style.display = "block";
+            setTimeout(closeModal, 2000);
+        } catch (error) {
+            errorMessage.textContent = `Error creating defect: ${error.message}`;
+            errorMessage.style.display = "block";
+        } finally {
+            loading.style.display = "none";
+        }
+    };
+
+    // Rest of the JavaScript code remains the same...
+</script>
