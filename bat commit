@@ -1,0 +1,31 @@
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Git Commands</title>
+</head>
+<body>
+    <!-- Simple button -->
+    <button onclick="runCommit()" style="background-color: #36B37E; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
+        Commit & Push Changes
+    </button>
+
+    <script>
+        function runCommit() {
+            const path = "C:\\your\\path\\to\\git_commit.bat"; // Update this path
+            window.open("file://" + path);
+        }
+    </script>
+</body>
+</html>
+```
+
+@echo off
+cd /d "C:\your\project\path"  REM Update this to your git repository path
+
+REM Open Git Bash and execute commands
+"C:\Program Files\Git\git-bash.exe" -c "git config --global credential.helper store && git add --all && git commit -m 'Auto commit' && git push --force"
+
+REM If you want to keep the window open to see results
+pause
