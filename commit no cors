@@ -1,0 +1,36 @@
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Git Commands</title>
+    <!-- Add security policy meta tag -->
+    <meta http-equiv="Content-Security-Policy" content="default-src *; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'">
+</head>
+<body>
+    <button onclick="runCommit()" style="background-color: #36B37E; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
+        Commit & Push Changes
+    </button>
+
+    <script>
+        function runCommit() {
+            try {
+                const batPath = "C:\\your\\path\\to\\git_commit.bat";
+                
+                // Try multiple methods
+                try {
+                    // Method 1: Direct shell execute
+                    const shell = new ActiveXObject("WScript.Shell");
+                    shell.Run(batPath, 1, true);
+                } catch(e) {
+                    // Method 2: Using shell protocol
+                    window.location.href = `shell:${batPath}`;
+                }
+            } catch (error) {
+                alert("Error executing batch file: " + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
+```
