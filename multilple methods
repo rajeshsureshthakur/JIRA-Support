@@ -1,0 +1,46 @@
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Git Commands</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; frame-src *; style-src * 'unsafe-inline';">
+</head>
+<body>
+    <button onclick="runCommit()" style="background-color: #36B37E; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
+        Commit & Push Changes
+    </button>
+
+    <script>
+        function runCommit() {
+            const batPath = "C:\\your\\path\\to\\git_commit.bat";
+            
+            // Try multiple methods
+            try {
+                // Method 1: Using shell protocol
+                window.location.href = `shell:${batPath}`;
+            } catch (e1) {
+                try {
+                    // Method 2: Using file protocol
+                    window.location.href = `file://${batPath}`;
+                } catch (e2) {
+                    try {
+                        // Method 3: Using start protocol
+                        window.location.href = `start:${batPath}`;
+                    } catch (e3) {
+                        try {
+                            // Method 4: Using ActiveX (IE/Edge only)
+                            const shell = new ActiveXObject("WScript.Shell");
+                            shell.Run(batPath, 1, true);
+                        } catch (e4) {
+                            alert("All execution methods failed. Please check console for details.");
+                            console.error("Execution errors:", {e1, e2, e3, e4});
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+```
