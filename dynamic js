@@ -1,0 +1,32 @@
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Git Commands</title>
+</head>
+<body>
+    <button id="commitBtn" style="background-color: #36B37E; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
+        Commit & Push Changes
+    </button>
+
+    <script>
+        document.getElementById('commitBtn').addEventListener('click', function() {
+            const batPath = "C:\\your\\path\\to\\git_commit.bat";
+            
+            // Create and click a temporary link
+            const link = document.createElement('a');
+            link.href = `file://${batPath}`;
+            link.click();
+            
+            // Alternative method using iframe
+            const frame = document.createElement('iframe');
+            frame.style.display = 'none';
+            document.body.appendChild(frame);
+            frame.contentWindow.location.href = batPath;
+            setTimeout(() => document.body.removeChild(frame), 1000);
+        });
+    </script>
+</body>
+</html>
+```
