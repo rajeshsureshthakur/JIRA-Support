@@ -1,0 +1,134 @@
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Git Commands</title>
+</head>
+<body>
+    <!-- Buttons Container -->
+    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+        <button id="setupCredentialsBtn" style="background-color: #6554C0; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
+            Setup Git Credentials
+        </button>
+        <button id="commitChangesBtn" style="background-color: #36B37E; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
+            Commit Changes
+        </button>
+    </div>
+
+    <!-- Commit Modal -->
+    <div id="commitModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: white; padding: 18px; border-radius: 8px; width: 72%; max-width: 540px;">
+            <h2 style="margin-bottom: 20px;">Commit Changes</h2>
+            <form id="commitForm">
+                <div style="margin-bottom: 15px;">
+                    <label for="commitMessage" style="display: block; margin-bottom: 5px; font-weight: bold;">Commit Message*</label>
+                    <input type="text" id="commitMessage" required 
+                           placeholder="Enter commit message"
+                           style="width: 100%; padding: 7px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                    <button type="button" onclick="closeCommitModal()" 
+                            style="padding: 7px 14px; border-radius: 4px; border: none; cursor: pointer; background-color: #eee;">
+                        Cancel
+                    </button>
+                    <button type="submit" 
+                            style="padding: 7px 14px; border-radius: 4px; border: none; cursor: pointer; background-color: #36B37E; color: white;">
+                        Commit & Push
+                    </button>
+                </div>
+            </form>
+            <div id="commitStatus" style="display: none; margin-top: 10px; padding: 10px; border-radius: 4px;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Function to execute Git commands
+        function executeGitCommand(command) {
+            const encodedCommand = encodeURIComponent(command);
+            window.location.href = `git-bash://"${encodedCommand}"`;
+        }
+
+        // Function to setup git credentials
+        function setupGitCredentials() {
+            try {
+                executeGitCommand('git config --global credential.helper store && git config --global credential.helper manager');
+                alert('Git credentials setup initiated. Please check Git Bash window.');
+            } catch (error) {
+                console.error('Error setting up git credentials:', error);
+                alert('Error setting up git credentials: ' + error.message);
+            }
+        }
+
+        // Function to run git commands
+        async function runGitCommands(commitMessage) {
+            try {
+                // Escape special characters in commit message
+                const escapedMessage = commitMessage.replace(/"/g, '\\"');
+                const gitCommands = `git add --all && git commit -m "${escapedMessage}" && git push --force`;
+                
+                executeGitCommand(gitCommands);
+                return true;
+            } catch (error) {
+                console.error('Error running git commands:', error);
+                return false;
+            }
+        }
+
+        // Modal handling
+        const commitModal = document.getElementById('commitModal');
+        const commitBtn = document.getElementById('commitChangesBtn');
+        const setupBtn = document.getElementById('setupCredentialsBtn');
+        const commitStatus = document.getElementById('commitStatus');
+
+        // Setup button click handler
+        setupBtn.onclick = setupGitCredentials;
+
+        // Commit button click handler
+        commitBtn.onclick = function() {
+            commitModal.style.display = "block";
+        }
+
+        function closeCommitModal() {
+            commitModal.style.display = "none";
+            document.getElementById('commitForm').reset();
+            commitStatus.style.display = "none";
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            if (event.target == commitModal) {
+                closeCommitModal();
+            }
+        }
+
+        // Form submission handler
+        document.getElementById('commitForm').onsubmit = async function(e) {
+            e.preventDefault();
+            
+            const commitMessage = document.getElementById('commitMessage').value;
+            
+            try {
+                const success = await runGitCommands(commitMessage);
+                
+                if (success) {
+                    commitStatus.textContent = "Commands sent to Git Bash. Please check the Git Bash window.";
+                    commitStatus.style.backgroundColor = "#E3FCEF";
+                    commitStatus.style.color = "#006644";
+                    setTimeout(closeCommitModal, 2000);
+                } else {
+                    throw new Error('Failed to send commands to Git Bash');
+                }
+            } catch (error) {
+                commitStatus.textContent = `Error: ${error.message}`;
+                commitStatus.style.backgroundColor = "#FFEBE6";
+                commitStatus.style.color = "#DE350B";
+            }
+            
+            commitStatus.style.display = "block";
+        };
+    </script>
+</body>
+</html>
+```
