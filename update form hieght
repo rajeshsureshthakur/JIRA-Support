@@ -1,0 +1,29 @@
+```html
+<!-- Modify the modal content div style -->
+<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            background-color: white; padding: 18px; border-radius: 8px; 
+            width: 72%; max-width: 540px;">  <!-- Changed from 80% to 72%, max-width from 600px to 540px -->
+```
+
+And adjust input padding:
+```html
+<!-- Modify the input, select, and textarea styles -->
+<input ... style="width: 100%; padding: 7px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+<select ... style="width: 100%; padding: 7px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+<textarea ... style="width: 100%; height: 90px; padding: 7px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+```
+
+Changes made:
+1. Modal width from 80% to 72%
+2. Max-width from 600px to 540px
+3. Padding reduced from 20px to 18px
+4. Input padding from 8px to 7px
+5. Textarea height from 100px to 90px
+
+This will make the form appear about 10% smaller while maintaining proportions and readability.
+
+Let me know if you want to:
+1. Adjust the size further
+2. Change specific element sizes
+3. Modify any other dimensions
+4. Adjust spacing or padding
